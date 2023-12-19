@@ -53,33 +53,76 @@ create_project_sources () {
   fi
 }
 
+create_project () {
+  PROJECT_NAME=$1
+
+  mkdir $PROJECT_NAME
+
+  if [[ $? -ne 0 ]]; then
+    # Check if "configure" is called, if it is, ignore "creating failed error"
+    echo 'Creating directory failed. Most probably it already exists.'
+    exit 255
+  fi
+
+  pushd $PWD/$PROJECT_NAME
+
+  # First, let's create our directories.
+
+  create_project_directories $PROJECT_NAME
+  create_project_files $PROJECT_NAME
+  create_project_sources $PROJECT_NAME
+
+  popd
+}
+
+
+configure () {
+
+  PROJECT_NAME=$1
+  BUILD_FOLDER_NAME="build"
+  CMAKE_PROJECT_GENERATOR="Ninja"
+
+  if ! command -v cmake &> /dev/null; then
+    echo "cmake could not be found."
+    return 255
+  fi
+
+  cmake \
+    -B $PWD/$PROJECT_NAME/$BUILD_FOLDER_NAME \
+    -G $CMAKE_PROJECT_GENERATOR \
+    -S $PWD/$PROJECT_NAME
+
+  if [[ $? -ne 0 ]]; then
+    echo "CMake generate failed."
+    return 255
+  fi
+
+  return 0
+}
+
 echo "./project.sh $PROJECT_SH_VERSION"
 
-# Check if project name is given, if not, return an error.
-if [ -z "$1" ]; then
+IS_ONLY_CONFIGURE=0
+
+if [[ "$#" -ge 2 ]]; then
+  # It is a project.sh command! Let's parse it.
+  case $2 in
+    configure)
+      IS_ONLY_CONFIGURE=1
+      configure $1
+      ;;
+
+    *)
+      # create_project $PROJECT_NAME
+      echo "Command $2 not found."
+      ;;
+  esac
+elif [ -n "$1" ]; then
+  PROJECT_NAME=$1
+  create_project $PROJECT_NAME
+else
   echo "No project name supplied."
   exit 255
 fi
-
-PROJECT_NAME=$1
-
-mkdir $PROJECT_NAME
-
-if [[ $? -ne 0 ]]; then
-  echo 'Creating directory failed. Most probably it already exists.'
-  exit 255
-fi
-
-pushd $PWD/$PROJECT_NAME
-
-# First, let's create our directories.
-
-create_project_directories $PROJECT_NAME
-
-create_project_files $PROJECT_NAME
-
-create_project_sources $PROJECT_NAME
-
-popd 
 
 exit 0
